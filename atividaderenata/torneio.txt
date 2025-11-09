@@ -1,0 +1,1 @@
+a:3:{s:6:"aberto";b:1;s:4:"nome";s:18:"Pegasus Tournament";s:9:"jogadores";a:1:{i:0;s:5:"Lukas";}}

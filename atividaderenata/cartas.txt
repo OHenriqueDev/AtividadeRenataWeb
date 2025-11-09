@@ -1,0 +1,1 @@
+a:1:{i:0;a:5:{s:2:"id";i:1;s:4:"nome";s:7:"Pikachu";s:4:"tipo";s:8:"Eletrico";s:5:"preco";d:20;s:5:"autor";s:5:"Lukas";}}
