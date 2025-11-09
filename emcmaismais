@@ -1,0 +1,192 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <cstdio> // para FILE*, fopen, fprintf, fscanf
+using namespace std;
+
+struct Usuario{
+    int id;
+    string nome;
+    string senha;
+    string tipo;
+};
+
+struct Carta{
+    int id;
+    string nome;
+    string tipo;
+    double preco;
+};
+
+struct Torneio{
+    string nome;
+    vector<string> jogadores;
+    bool aberto=false;
+};
+
+vector<Usuario> usuarios;
+vector<Carta> cartas;
+Torneio torneio;
+
+// SALVAR USUARIO
+void salvarUsuario(Usuario u){
+    FILE* arquivo = fopen("usuarios.txt", "a");
+    if(!arquivo){
+        cout<<"Erro ao abrir arquivo\n";
+        return;
+    }
+    fprintf(arquivo, "%d;%s;%s;%s\n", u.id, u.nome.c_str(), u.senha.c_str(), u.tipo.c_str());
+    fclose(arquivo);
+}
+
+// CARREGAR USUARIOS
+void carregarUsuarios(){
+    FILE* arquivo = fopen("usuarios.txt", "r");
+    if(!arquivo) return;
+    Usuario u;
+    char nome[50], senha[50], tipo[10];
+    while(fscanf(arquivo, "%d;%49[^;];%49[^;];%9[^\n]\n", &u.id, nome, senha, tipo) == 4){
+        u.nome = nome;
+        u.senha = senha;
+        u.tipo = tipo;
+        usuarios.push_back(u);
+    }
+    fclose(arquivo);
+}
+
+int main(){
+    carregarUsuarios();
+
+    if(usuarios.empty()){
+        Usuario admin;
+        admin.id = 1;
+        admin.nome = "admin";
+        admin.senha = "123";
+        admin.tipo = "admin";
+        usuarios.push_back(admin);
+        salvarUsuario(admin);
+    }
+
+    int op;
+    string nome, senha, tipo;
+    bool logado=false;
+    int logadoId=-1;
+
+    while(true){
+        cout<<"\n1-Login\n2-Sair\nEscolha: ";
+        cin>>op;
+        if(op==2) break;
+
+        if(op==1){
+            cout<<"Nome: ";
+            cin>>nome;
+            cout<<"Senha: ";
+            cin>>senha;
+            bool achou=false;
+            for(auto &u:usuarios){
+                if(u.nome==nome && u.senha==senha){
+                    logado=true;
+                    tipo=u.tipo;
+                    logadoId=u.id;
+                    achou=true;
+                    break;
+                }
+            }
+            if(!achou){
+                cout<<"Login incorreto\n";
+                continue;
+            }
+        }
+
+        while(logado){
+            if(tipo=="admin"){
+                cout<<"\n--- MENU ADMIN ---\n1-Cadastrar usuario\n2-Cadastrar carta\n3-Ver cartas\n4-Criar torneio\n5-Ver torneio\n6-Fechar torneio\n7-Logout\nEscolha: ";
+                cin>>op;
+                if(op==1){
+                    Usuario u;
+                    u.id = usuarios.size() + 1;
+                    cout<<"Nome: ";
+                    cin>>u.nome;
+                    cout<<"Senha: ";
+                    cin>>u.senha;
+                    u.tipo="user";
+                    usuarios.push_back(u);
+                    salvarUsuario(u);
+                    cout<<"Usuario criado\n";
+                }else if(op==2){
+                    Carta c;
+                    c.id = cartas.size() + 1;
+                    cout<<"Nome do Pokemon: ";
+                    cin>>c.nome;
+                    cout<<"Tipo da carta: ";
+                    cin>>c.tipo;
+                    cout<<"Preco: ";
+                    cin>>c.preco;
+                    cartas.push_back(c);
+                    cout<<"Carta cadastrada ID "<<c.id<<"\n";
+                }else if(op==3){
+                    for(auto &c:cartas){
+                        system("cls");
+                        cout<< "Cartas disponiveis: \n ";
+                        cout<<c.id<<" - "<<c.nome<<" ("<<c.tipo<<") R$"<<c.preco<<"\n";
+                    }
+                }else if(op==4){
+                    if(torneio.aberto){
+                        cout<<"Ja tem torneio aberto\n";
+                    }else{
+                        cout<<"Nome do torneio: ";
+                        cin>>torneio.nome;
+                        torneio.jogadores.clear();
+                        torneio.aberto=true;
+                        cout<<"Torneio criado\n";
+                    }
+                }else if(op==5){
+                    if(torneio.aberto){
+                        cout<<"Torneio: "<<torneio.nome<<"\nJogadores ("<<torneio.jogadores.size()<<"/8):\n";
+                        for(auto &j:torneio.jogadores) cout<<j<<"\n";
+                    }else cout<<"Nenhum torneio aberto\n";
+                }else if(op==6){
+                    if(torneio.aberto){
+                        torneio.aberto=false;
+                        torneio.jogadores.clear();
+                        cout<<"Torneio encerrado\n";
+                    }else cout<<"Nenhum torneio ativo\n";
+                }else if(op==7){
+                    logado=false;
+                }
+            }else{
+                cout<<"\n--- MENU USER ---\n1-Ver cartas\n2-Entrar torneio\n3-Ver torneio\n4-Logout\nEscolha: ";
+                cin>>op;
+                if(op==1){
+                    for(auto &c:cartas){
+                        system("cls");
+                        cout<< "Cartas disponiveis: \n ";
+                        cout<<c.id<<" - "<<c.nome<<" ("<<c.tipo<<") R$"<<c.preco<<"\n";
+                    }
+                }else if(op==2){
+                    if(!torneio.aberto){
+                        cout<<"Nao tem torneio aberto\n";
+                    }else if(torneio.jogadores.size()>=8){
+                        cout<<"Torneio cheio\n";
+                    }else{
+                        bool existe=false;
+                        for(auto &j:torneio.jogadores){
+                            if(j==nome) existe=true;
+                        }
+                        if(!existe){
+                            torneio.jogadores.push_back(nome);
+                            cout<<"Entrou no torneio!\n";
+                        }else cout<<"Ja esta no torneio\n";
+                    }
+                }else if(op==3){
+                    if(torneio.aberto){
+                        cout<<"Torneio: "<<torneio.nome<<"\n";
+                        for(auto &j:torneio.jogadores) cout<<j<<"\n";
+                    }else cout<<"Nenhum torneio ativo\n";
+                }else if(op==4){
+                    logado=false;
+                }
+            }
+        }
+    }
+}
