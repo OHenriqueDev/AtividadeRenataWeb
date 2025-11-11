@@ -1,63 +1,81 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <cstdio> // para FILE*, fopen, fprintf, fscanf
-using namespace std;
+// bibliotecas basicas do c++
+#include <iostream> // entrada e saída de dados (cout, cin)
+#include <vector>   // lista dinâmica (vetores que crescem automaticamente)
+#include <string>   // pra usar strings (textos)
+#include <cstdio>   // funções antigas de arquivo: FILE*, fopen, fprintf, fscanf
 
-struct Usuario{
+using namespace std; // pra não precisar escrever std:: o tempo todo
+
+// estrutura de dados que guarda informações de um usuário
+struct Usuario {
     int id;
     string nome;
     string senha;
-    string tipo;
+    string tipo; // "admin" ou "user"
 };
 
-struct Carta{
+// estrutura pra guardar informações das cartas (tipo Pokémon, nome e preço)
+struct Carta {
     int id;
     string nome;
     string tipo;
     double preco;
 };
 
-struct Torneio{
+// estrutura pra guardar dados de um torneio
+struct Torneio {
     string nome;
-    vector<string> jogadores;
-    bool aberto=false;
+    vector<string> jogadores; // lista com os nomes dos jogadores
+    bool aberto = false;      // se o torneio está aberto ou não
 };
 
-vector<Usuario> usuarios;
-vector<Carta> cartas;
-Torneio torneio;
+// vetores (listas) principais
+vector<Usuario> usuarios; // lista de todos os usuários cadastrados
+vector<Carta> cartas;     // lista de todas as cartas cadastradas
+Torneio torneio;          // o torneio atual
 
-// SALVAR USUARIO
-void salvarUsuario(Usuario u){
-    FILE* arquivo = fopen("usuarios.txt", "a");
-    if(!arquivo){
-        cout<<"Erro ao abrir arquivo\n";
+// função pra salvar um usuário novo no arquivo usuarios.txt
+void salvarUsuario(Usuario u) {
+    FILE* arquivo = fopen("usuarios.txt", "a"); // abre o arquivo em modo "adicionar"
+    if (!arquivo) {
+        cout << "erro ao abrir arquivo\n";
         return;
     }
+    // grava os dados separados por ponto e vírgula
     fprintf(arquivo, "%d;%s;%s;%s\n", u.id, u.nome.c_str(), u.senha.c_str(), u.tipo.c_str());
-    fclose(arquivo);
+    fclose(arquivo); // fecha o arquivo
 }
 
-// CARREGAR USUARIOS
-void carregarUsuarios(){
-    FILE* arquivo = fopen("usuarios.txt", "r");
-    if(!arquivo) return;
+// função pra carregar todos os usuários salvos do arquivo
+void carregarUsuarios() {
+    FILE* arquivo = fopen("usuarios.txt", "r"); // abre pra leitura
+    if (!arquivo) return; // se não existir, só sai
     Usuario u;
     char nome[50], senha[50], tipo[10];
-    while(fscanf(arquivo, "%d;%49[^;];%49[^;];%9[^\n]\n", &u.id, nome, senha, tipo) == 4){
+    // lê linha por linha no formato id;nome;senha;tipo
+    while (fscanf(arquivo, "%d;%49[^;];%49[^;];%9[^\n]\n", &u.id, nome, senha, tipo) == 4) {
         u.nome = nome;
         u.senha = senha;
         u.tipo = tipo;
-        usuarios.push_back(u);
+        usuarios.push_back(u); // adiciona à lista
     }
     fclose(arquivo);
 }
 
-int main(){
-    carregarUsuarios();
+// limpa a tela (funciona tanto no windows quanto no linux)
+void limparTela() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
 
-    if(usuarios.empty()){
+int main() {
+    carregarUsuarios(); // carrega os usuários existentes logo no início
+
+    // se o arquivo estava vazio, cria um admin padrão
+    if (usuarios.empty()) {
         Usuario admin;
         admin.id = 1;
         admin.nome = "admin";
@@ -69,124 +87,4 @@ int main(){
 
     int op;
     string nome, senha, tipo;
-    bool logado=false;
-    int logadoId=-1;
-
-    while(true){
-        cout<<"\n1-Login\n2-Sair\nEscolha: ";
-        cin>>op;
-        if(op==2) break;
-
-        if(op==1){
-            cout<<"Nome: ";
-            cin>>nome;
-            cout<<"Senha: ";
-            cin>>senha;
-            bool achou=false;
-            for(auto &u:usuarios){
-                if(u.nome==nome && u.senha==senha){
-                    logado=true;
-                    tipo=u.tipo;
-                    logadoId=u.id;
-                    achou=true;
-                    break;
-                }
-            }
-            if(!achou){
-                cout<<"Login incorreto\n";
-                continue;
-            }
-        }
-
-        while(logado){
-            if(tipo=="admin"){
-                cout<<"\n--- MENU ADMIN ---\n1-Cadastrar usuario\n2-Cadastrar carta\n3-Ver cartas\n4-Criar torneio\n5-Ver torneio\n6-Fechar torneio\n7-Logout\nEscolha: ";
-                cin>>op;
-                if(op==1){
-                    Usuario u;
-                    u.id = usuarios.size() + 1;
-                    cout<<"Nome: ";
-                    cin>>u.nome;
-                    cout<<"Senha: ";
-                    cin>>u.senha;
-                    u.tipo="user";
-                    usuarios.push_back(u);
-                    salvarUsuario(u);
-                    cout<<"Usuario criado\n";
-                }else if(op==2){
-                    Carta c;
-                    c.id = cartas.size() + 1;
-                    cout<<"Nome do Pokemon: ";
-                    cin>>c.nome;
-                    cout<<"Tipo da carta: ";
-                    cin>>c.tipo;
-                    cout<<"Preco: ";
-                    cin>>c.preco;
-                    cartas.push_back(c);
-                    cout<<"Carta cadastrada ID "<<c.id<<"\n";
-                }else if(op==3){
-                    for(auto &c:cartas){
-                        system("cls");
-                        cout<< "Cartas disponiveis: \n ";
-                        cout<<c.id<<" - "<<c.nome<<" ("<<c.tipo<<") R$"<<c.preco<<"\n";
-                    }
-                }else if(op==4){
-                    if(torneio.aberto){
-                        cout<<"Ja tem torneio aberto\n";
-                    }else{
-                        cout<<"Nome do torneio: ";
-                        cin>>torneio.nome;
-                        torneio.jogadores.clear();
-                        torneio.aberto=true;
-                        cout<<"Torneio criado\n";
-                    }
-                }else if(op==5){
-                    if(torneio.aberto){
-                        cout<<"Torneio: "<<torneio.nome<<"\nJogadores ("<<torneio.jogadores.size()<<"/8):\n";
-                        for(auto &j:torneio.jogadores) cout<<j<<"\n";
-                    }else cout<<"Nenhum torneio aberto\n";
-                }else if(op==6){
-                    if(torneio.aberto){
-                        torneio.aberto=false;
-                        torneio.jogadores.clear();
-                        cout<<"Torneio encerrado\n";
-                    }else cout<<"Nenhum torneio ativo\n";
-                }else if(op==7){
-                    logado=false;
-                }
-            }else{
-                cout<<"\n--- MENU USER ---\n1-Ver cartas\n2-Entrar torneio\n3-Ver torneio\n4-Logout\nEscolha: ";
-                cin>>op;
-                if(op==1){
-                    for(auto &c:cartas){
-                        system("cls");
-                        cout<< "Cartas disponiveis: \n ";
-                        cout<<c.id<<" - "<<c.nome<<" ("<<c.tipo<<") R$"<<c.preco<<"\n";
-                    }
-                }else if(op==2){
-                    if(!torneio.aberto){
-                        cout<<"Nao tem torneio aberto\n";
-                    }else if(torneio.jogadores.size()>=8){
-                        cout<<"Torneio cheio\n";
-                    }else{
-                        bool existe=false;
-                        for(auto &j:torneio.jogadores){
-                            if(j==nome) existe=true;
-                        }
-                        if(!existe){
-                            torneio.jogadores.push_back(nome);
-                            cout<<"Entrou no torneio!\n";
-                        }else cout<<"Ja esta no torneio\n";
-                    }
-                }else if(op==3){
-                    if(torneio.aberto){
-                        cout<<"Torneio: "<<torneio.nome<<"\n";
-                        for(auto &j:torneio.jogadores) cout<<j<<"\n";
-                    }else cout<<"Nenhum torneio ativo\n";
-                }else if(op==4){
-                    logado=false;
-                }
-            }
-        }
-    }
-}
+    bool logad
