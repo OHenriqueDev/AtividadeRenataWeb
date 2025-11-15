@@ -1,0 +1,482 @@
+<?php
+// iniciar sessão pra guardar os dados em memória enquanto o servidor roda
+session_start();
+
+/*
+    arquivo reescrito por um estudante iniciante
+    objetivo: manter a lógica original, mas com comentários explicativos
+    e nome de variáveis simples, parecendo código feito à mão
+*/
+
+/* ============================================================
+   INICIALIZAÇÃO BÁSICA DOS DADOS (usuários, cartas, torneios, avisos)
+   - aqui eu verifico se as variáveis da sessão existem, se não existir
+     eu crio com valores iniciais simples
+============================================================ */
+
+if (!isset($_SESSION['usuarios'])) {
+    // crio um usuário admin padrão pra poder usar o sistema
+    $_SESSION['usuarios'] = [
+        [
+            'nome' => 'admin',
+            'senha' => '123',
+            'tipo' => 'admin'
+        ]
+    ];
+}
+
+if (!isset($_SESSION['cartas'])) {
+    // lista de cartas inicialmente vazia
+    $_SESSION['cartas'] = [];
+}
+
+if (!isset($_SESSION['torneios'])) {
+    // lista de torneios inicialmente vazia
+    $_SESSION['torneios'] = [];
+}
+
+if (!isset($_SESSION['avisos'])) {
+    // lista de avisos inicialmente vazia
+    $_SESSION['avisos'] = [];
+}
+
+/* ============================================================
+   SISTEMA DE AUTENTICAÇÃO: login, registrar, logout
+   - variavel $mensagem será usada pra mostrar retornos simples
+============================================================ */
+
+$mensagem = "";
+
+// login: verificar se o form de login foi enviado
+if (isset($_POST['login'])) {
+    // percorro todos os usuarios da sessao pra achar uma combinacao
+    foreach ($_SESSION['usuarios'] as $u) {
+        if ($u['nome'] === ($_POST['nome'] ?? '') && $u['senha'] === ($_POST['senha'] ?? '')) {
+            // encontrei, salvo o usuário logado na sessão
+            $_SESSION['logado'] = $u;
+            $mensagem = "Bem-vindo!";
+            break;
+        }
+    }
+    // se não criou a variavel logado, significa erro
+    if (!isset($_SESSION['logado'])) {
+        $mensagem = "Usuário ou senha incorretos.";
+    }
+}
+
+// registrar: cadastra um novo usuário simples (tipo user)
+if (isset($_POST['registrar'])) {
+    // pego os dados do form, sem validações avançadas, do jeito que um iniciante faria
+    $novo = trim($_POST['novo_nome'] ?? '');
+    $senha = trim($_POST['nova_senha'] ?? '');
+
+    // só pra evitar nomes vazios
+    if ($novo !== '' && $senha !== '') {
+        $_SESSION['usuarios'][] = [
+            'nome' => $novo,
+            'senha' => $senha,
+            'tipo' => 'user'
+        ];
+        $mensagem = "Conta criada. Faça login.";
+    } else {
+        $mensagem = "Preencha usuário e senha para registrar.";
+    }
+}
+
+// logout: se existir o parametro, desloga e volta pra página inicial
+if (isset($_GET['logout'])) {
+    unset($_SESSION['logado']);
+    header('Location: index.php');
+    exit;
+}
+
+/* ============================================================
+   CARTAS: criar nova carta e excluir carta
+   - aqui tem upload de imagem e informações pra quem se interessar na carta
+============================================================ */
+
+// excluir carta: só quem criou ou admin pode excluir
+if (isset($_GET['del_carta']) && isset($_SESSION['logado'])) {
+    $idParaExcluir = (int) ($_GET['del_carta']);
+    foreach ($_SESSION['cartas'] as $index => $c) {
+        $usuarioLogado = $_SESSION['logado'];
+        // se for admin ou autor da carta, permite exclusão
+        if ($usuarioLogado['tipo'] === 'admin' || $usuarioLogado['nome'] === $c['autor']) {
+            if ($c['id'] === $idParaExcluir) {
+                unset($_SESSION['cartas'][$index]);
+                // reorganizo as chaves do array pra ficar certinho
+                $_SESSION['cartas'] = array_values($_SESSION['cartas']);
+                break;
+            }
+        }
+    }
+    header('Location: index.php?page=cartas');
+    exit;
+}
+
+// cadastrar nova carta: requer estar logado
+if (isset($_POST['nova_carta']) && isset($_SESSION['logado'])) {
+    $imgData = null;
+
+    // checar se o usuário enviou um arquivo de imagem
+    if (!empty($_FILES['imagem']['tmp_name'])) {
+        $tmp = $_FILES['imagem']['tmp_name'];
+        // leio o arquivo e converto pra base64 pra não precisar salvar no disco
+        $conteudo = file_get_contents($tmp);
+        $mime = mime_content_type($tmp) ?: 'application/octet-stream';
+        $imgData = "data:$mime;base64," . base64_encode($conteudo);
+    }
+
+    // crio o registro da carta, id simples (tamanho do array + 1)
+    $_SESSION['cartas'][] = [
+        'id'    => count($_SESSION['cartas']) + 1,
+        'nome'  => $_POST['nome'] ?? '',
+        'tipo'  => $_POST['tipo'] ?? '',
+        'valor' => floatval($_POST['valor'] ?? 0),
+        'img'   => $imgData,
+        'autor' => $_SESSION['logado']['nome']
+    ];
+
+    // depois de cadastrar, redireciono pra lista de cartas
+    header('Location: index.php?page=cartas');
+    exit;
+}
+
+/* ============================================================
+   TORNEIOS: criar / excluir / entrar / sair
+   Sistema de torneios!! :D
+============================================================ */
+
+// garantir que todo torneio tenha um campo "jogadores" como array
+foreach ($_SESSION['torneios'] as $i => $t) {
+    if (!isset($_SESSION['torneios'][$i]['jogadores'])) {
+        $_SESSION['torneios'][$i]['jogadores'] = [];
+    }
+}
+
+// criar torneio: só admin pode criar
+if (isset($_POST['criar_torneio']) && isset($_SESSION['logado']) && $_SESSION['logado']['tipo'] === 'admin') {
+    $_SESSION['torneios'][] = [
+        'id' => count($_SESSION['torneios']) + 1,
+        'nome' => $_POST['nome'] ?? '',
+        'local' => $_POST['local'] ?? '',
+        'inicio' => $_POST['inicio'] ?? '',
+        'fim' => $_POST['fim'] ?? '',
+        'jogadores' => []
+    ];
+    header('Location: index.php?page=torneios');
+    exit;
+}
+
+// excluir torneio: só admin pode
+if (isset($_GET['del_torneio']) && isset($_SESSION['logado']) && $_SESSION['logado']['tipo'] === 'admin') {
+    $delId = (int) ($_GET['del_torneio']);
+    // filtro e reorganizo os torneios removendo o que tem o id pedido
+    $_SESSION['torneios'] = array_values(array_filter($_SESSION['torneios'], function($t) use ($delId) {
+        return $t['id'] != $delId;
+    }));
+    header('Location: index.php?page=torneios');
+    exit;
+}
+
+// ações de entrar e sair de torneio (usuário comum)
+if (isset($_GET['acao']) && isset($_SESSION['logado'])) {
+    $id = (int) ($_GET['id'] ?? 0);
+    $acao = $_GET['acao'] ?? '';
+    $nomeUsuario = $_SESSION['logado']['nome'];
+
+    foreach ($_SESSION['torneios'] as $i => $t) {
+        if ($t['id'] === $id) {
+            // entrar: se não estiver inscrito e ainda houver vagas (max 8)
+            if ($acao === 'entrar' && !in_array($nomeUsuario, $t['jogadores']) && count($t['jogadores']) < 8) {
+                $_SESSION['torneios'][$i]['jogadores'][] = $nomeUsuario;
+            }
+            // sair: remove o nome da lista de jogadores
+            if ($acao === 'sair') {
+                $_SESSION['torneios'][$i]['jogadores'] = array_values(array_diff($t['jogadores'], [$nomeUsuario]));
+            }
+            break;
+        }
+    }
+
+    header('Location: index.php?page=torneios');
+    exit;
+}
+
+/* ============================================================
+   AVISOS: sistema de criar admin
+============================================================ */
+
+if (isset($_POST['novo_aviso']) && isset($_SESSION['logado']) && $_SESSION['logado']['tipo'] === 'admin') {
+    $texto = trim($_POST['aviso_texto'] ?? '');
+    if ($texto !== '') {
+        $_SESSION['avisos'][] = [
+            'texto' => $texto,
+            'data' => date('d/m/Y H:i')
+        ];
+    }
+    header('Location: index.php?page=avisos');
+    exit;
+}
+
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <title>PokeCard Center</title>
+    <style>
+        /* design do site */
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f2f2f2;
+            color: #222;
+        }
+        header {
+            background: linear-gradient(90deg, #ff1c1c, #d60c0c); 
+            padding: 18px;
+            color: white;
+            text-align: center;
+            font-size: 30px;
+            font-weight: 700;
+        }
+        nav {
+            background: #2b2b2b;
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            border-bottom: 3px solid #ffcb05;
+        }
+        nav a {
+            color: #ffcb05;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        nav a:hover { color: #fff; }
+        .container {
+            max-width: 900px;
+            margin: 24px auto;
+            background: #ffffff;
+            padding: 18px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.12);
+        }
+        .card {
+            padding: 12px;
+            margin: 10px 0;
+            border-left: 6px solid #ff1c1c;
+            background: #fff;
+            border-radius: 10px;
+        }
+        button {
+            background: #ffcb05;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 6px 0;
+            box-sizing: border-box;
+        }
+        img { display: block; margin-top: 8px; border-radius: 6px; }
+        small { color: #666; }
+    </style>
+</head>
+<body>
+<header>PokeCard Center</header>
+
+<nav>
+    <a href="index.php">Home</a>
+    <a href="index.php?page=cartas">Cartas</a>
+    <a href="index.php?page=torneios">Torneios</a>
+    <a href="index.php?page=avisos">Avisos</a>
+</nav>
+
+<div class="container">
+
+    <?php if ($mensagem): ?>
+        <!-- mostrar mensagem simples de feedback -->
+        <p><strong><?php echo htmlspecialchars($mensagem, ENT_QUOTES); ?></strong></p>
+    <?php endif; ?>
+
+    <?php
+    // pegar a página via get, padrão "home"
+    $pagina = $_GET['page'] ?? 'home';
+
+    /* ------------------------------------------------------------
+       PÁGINA HOME: mostra login/registro ou boas-vinda
+    ------------------------------------------------------------ */
+    if ($pagina === 'home'):
+    ?>
+
+        <?php if (!isset($_SESSION['logado'])): ?>
+            <h2>Login</h2>
+            <!-- form de login simples -->
+            <form method="post">
+                <input name="nome" placeholder="Usuário">
+                <input type="password" name="senha" placeholder="Senha">
+                <button name="login">Entrar</button>
+            </form>
+
+            <h3>Criar conta</h3>
+            <!-- form de registrar conta -->
+            <form method="post">
+                <input name="novo_nome" placeholder="Usuário">
+                <input type="password" name="nova_senha" placeholder="Senha">
+                <button name="registrar">Registrar</button>
+            </form>
+
+        <?php else: ?>
+            <!-- se já estiver logado, mostrar o nome e botão sair -->
+            <p>Bem-vindo, <strong><?php echo htmlspecialchars($_SESSION['logado']['nome'], ENT_QUOTES); ?></strong></p>
+            <a href="?logout=1"><button>sair</button></a>
+        <?php endif; ?>
+
+    <?php
+    /* ------------------------------------------------------------
+       PÁGINA CARTAS: listar cartas e permitir cadastro/exclusão
+    ------------------------------------------------------------ */
+    elseif ($pagina === 'cartas'):
+    ?>
+
+        <h2>Cartas</h2>
+
+        <?php if (count($_SESSION['cartas']) === 0): ?>
+            <p>ainda não tem cartas cadastradas.</p>
+        <?php endif; ?>
+
+        <?php foreach ($_SESSION['cartas'] as $c): ?>
+            <div class="card">
+                <h3><?php echo htmlspecialchars($c['nome'], ENT_QUOTES); ?></h3>
+                <p>Tipo: <?php echo htmlspecialchars($c['tipo'], ENT_QUOTES); ?></p>
+                <p>Valor: R$ <?php echo number_format($c['valor'], 2, ',', '.'); ?></p>
+                <?php if (!empty($c['img'])): ?>
+                    <!-- se tiver imagem, mostro a imagem (data-uri) -->
+                    <img src="<?php echo $c['img']; ?>" width="200" alt="imagem da carta">
+                <?php endif; ?>
+                <p><small>Criador: <?php echo htmlspecialchars($c['autor'], ENT_QUOTES); ?></small></p>
+
+                <?php if (isset($_SESSION['logado'])): ?>
+                    <?php $u = $_SESSION['logado']; ?>
+                    <?php if ($u['tipo'] === 'admin' || $u['nome'] === $c['autor']): ?>
+                        <!-- botão para excluir, visível só pro autor ou admin -->
+                        <a href="?page=cartas&del_carta=<?php echo $c['id']; ?>"><button>Excluir</button></a>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+
+        <?php if (isset($_SESSION['logado'])): ?>
+            <h3>Nova Carta</h3>
+            <!-- form pra cadastrar nova carta, permite upload de imagem -->
+            <form method="post" enctype="multipart/form-data">
+                <input name="nome" placeholder="Nome">
+                <input name="tipo" placeholder="Tipo">
+                <input type="number" name="valor" step="0.01" placeholder="Valor">
+                <input type="file" name="imagem" accept="image/*">
+                <button name="nova_carta">Cadastrar</button>
+            </form>
+        <?php else: ?>
+            <p>faça login para cadastrar cartas.</p>
+        <?php endif; ?>
+
+    <?php
+    /* ------------------------------------------------------------
+       PÁGINA TORNEIOS: listar torneios, participar, criar/excluir
+    ------------------------------------------------------------ */
+    elseif ($pagina === 'torneios'):
+    ?>
+
+        <h2>Torneios</h2>
+
+        <?php if (count($_SESSION['torneios']) === 0): ?>
+            <p>ainda não há torneios criados.</p>
+        <?php endif; ?>
+
+        <?php foreach ($_SESSION['torneios'] as $t): ?>
+            <div class="card">
+                <h3><?php echo htmlspecialchars($t['nome'], ENT_QUOTES); ?></h3>
+                <p>Local: <?php echo htmlspecialchars($t['local'] ?? '', ENT_QUOTES); ?></p>
+                <p>Período: <?php echo htmlspecialchars($t['inicio'] ?? '', ENT_QUOTES); ?> até <?php echo htmlspecialchars($t['fim'] ?? '', ENT_QUOTES); ?></p>
+
+                <p>Participantes (<?php echo count($t['jogadores']); ?>/8)</p>
+                <ul>
+                    <?php foreach ($t['jogadores'] as $j): ?>
+                        <li><?php echo htmlspecialchars($j, ENT_QUOTES); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+
+                <?php if (isset($_SESSION['logado'])): ?>
+                    <?php if ($_SESSION['logado']['tipo'] === 'admin'): ?>
+                        <!-- admin pode excluir torneio -->
+                        <a href="?page=torneios&del_torneio=<?php echo $t['id']; ?>"><button>Excluir</button></a>
+                    <?php else: ?>
+                        <?php $nomeLogado = $_SESSION['logado']['nome']; ?>
+                        <?php if (in_array($nomeLogado, $t['jogadores'])): ?>
+                            <!-- se já participa, mostrar sair -->
+                            <a href="?page=torneios&acao=sair&id=<?php echo $t['id']; ?>"><button>Sair</button></a>
+                        <?php elseif (count($t['jogadores']) < 8): ?>
+                            <!-- se houver vaga, permitir entrar -->
+                            <a href="?page=torneios&acao=entrar&id=<?php echo $t['id']; ?>"><button>Participar</button></a>
+                        <?php else: ?>
+                            <p><i>Torneio cheio.</i></p>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                <?php endif; ?>
+
+            </div>
+        <?php endforeach; ?>
+
+        <?php if (isset($_SESSION['logado']) && $_SESSION['logado']['tipo'] === 'admin'): ?>
+            <h3>Novo Torneio</h3>
+            <!-- form simples para criar torneio (somente admin) -->
+            <form method="post">
+                <input name="nome" placeholder="Nome">
+                <input name="local" placeholder="Local">
+                <input type="date" name="inicio">
+                <input type="date" name="fim">
+                <button name="criar_torneio">Criar</button>
+            </form>
+        <?php endif; ?>
+
+    <?php
+    /* ------------------------------------------------------------
+       PÁGINA AVISOS: exibir avisos e permitir criação (admin)
+    ------------------------------------------------------------ */
+    elseif ($pagina === 'avisos'):
+    ?>
+
+        <h2>Avisos</h2>
+
+        <?php if (isset($_SESSION['logado']) && $_SESSION['logado']['tipo'] === 'admin'): ?>
+            <!-- admin pode criar aviso -->
+            <form method="post">
+                <textarea name="aviso_texto" placeholder="Digite um aviso..." style="height:80px;"></textarea>
+                <button name="novo_aviso">Publicar Aviso</button>
+            </form>
+            <hr>
+        <?php endif; ?>
+
+        <?php if (count($_SESSION['avisos']) === 0): ?>
+            <p>Nenhum aviso cadastrado.</p>
+        <?php else: ?>
+            <?php foreach (array_reverse($_SESSION['avisos']) as $a): ?>
+                <div class="card">
+                    <p><strong><?php echo htmlspecialchars($a['data'], ENT_QUOTES); ?></strong></p>
+                    <p><?php echo nl2br(htmlspecialchars($a['texto'], ENT_QUOTES)); ?></p>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+
+    <?php endif; // fim das páginas ?>
+
+</div> <!-- container -->
+
+</body>
+</html>
