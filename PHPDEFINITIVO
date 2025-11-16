@@ -2,18 +2,6 @@
 // iniciar sessão pra guardar os dados em memória enquanto o servidor roda
 session_start();
 
-/*
-    arquivo reescrito por um estudante iniciante
-    objetivo: manter a lógica original, mas com comentários explicativos
-    e nome de variáveis simples, parecendo código feito à mão
-*/
-
-/* ============================================================
-   INICIALIZAÇÃO BÁSICA DOS DADOS (usuários, cartas, torneios, avisos)
-   - aqui eu verifico se as variáveis da sessão existem, se não existir
-     eu crio com valores iniciais simples
-============================================================ */
-
 if (!isset($_SESSION['usuarios'])) {
     // crio um usuário admin padrão pra poder usar o sistema
     $_SESSION['usuarios'] = [
@@ -42,7 +30,7 @@ if (!isset($_SESSION['avisos'])) {
 
 /* ============================================================
    SISTEMA DE AUTENTICAÇÃO: login, registrar, logout
-   - variavel $mensagem será usada pra mostrar retornos simples
+   - variavel $mensagem será usada pra dar alguns avisos ou retornos
 ============================================================ */
 
 $mensagem = "";
@@ -64,9 +52,9 @@ if (isset($_POST['login'])) {
     }
 }
 
-// registrar: cadastra um novo usuário simples (tipo user)
+// registrar: cadastra um novo usuário normal (tipo user)
 if (isset($_POST['registrar'])) {
-    // pego os dados do form, sem validações avançadas, do jeito que um iniciante faria
+    // pego os dados do form
     $novo = trim($_POST['novo_nome'] ?? '');
     $senha = trim($_POST['nova_senha'] ?? '');
 
@@ -127,7 +115,7 @@ if (isset($_POST['nova_carta']) && isset($_SESSION['logado'])) {
         $imgData = "data:$mime;base64," . base64_encode($conteudo);
     }
 
-    // crio o registro da carta, id simples (tamanho do array + 1)
+    // crio o registro da carta, id somatorio (tamanho do array + 1)
     $_SESSION['cartas'][] = [
         'id'    => count($_SESSION['cartas']) + 1,
         'nome'  => $_POST['nome'] ?? '',
@@ -204,7 +192,7 @@ if (isset($_GET['acao']) && isset($_SESSION['logado'])) {
 }
 
 /* ============================================================
-   AVISOS: sistema de criar admin
+   sistema de criar admin
 ============================================================ */
 
 if (isset($_POST['novo_aviso']) && isset($_SESSION['logado']) && $_SESSION['logado']['tipo'] === 'admin') {
@@ -226,7 +214,7 @@ if (isset($_POST['novo_aviso']) && isset($_SESSION['logado']) && $_SESSION['loga
     <meta charset="utf-8">
     <title>PokeCard Center</title>
     <style>
-        /* design do site */
+        /* design do site :) */
         body {
             margin: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -301,7 +289,7 @@ if (isset($_POST['novo_aviso']) && isset($_SESSION['logado']) && $_SESSION['loga
 <div class="container">
 
     <?php if ($mensagem): ?>
-        <!-- mostrar mensagem simples de feedback -->
+        <!-- mostrar mensagem de feedback -->
         <p><strong><?php echo htmlspecialchars($mensagem, ENT_QUOTES); ?></strong></p>
     <?php endif; ?>
 
@@ -317,7 +305,7 @@ if (isset($_POST['novo_aviso']) && isset($_SESSION['logado']) && $_SESSION['loga
 
         <?php if (!isset($_SESSION['logado'])): ?>
             <h2>Login</h2>
-            <!-- form de login simples -->
+            <!-- form de login -->
             <form method="post">
                 <input name="nome" placeholder="Usuário">
                 <input type="password" name="senha" placeholder="Senha">
@@ -435,7 +423,7 @@ if (isset($_POST['novo_aviso']) && isset($_SESSION['logado']) && $_SESSION['loga
 
         <?php if (isset($_SESSION['logado']) && $_SESSION['logado']['tipo'] === 'admin'): ?>
             <h3>Novo Torneio</h3>
-            <!-- form simples para criar torneio (somente admin) -->
+            <!-- form para criar torneio (somente admin) -->
             <form method="post">
                 <input name="nome" placeholder="Nome">
                 <input name="local" placeholder="Local">
